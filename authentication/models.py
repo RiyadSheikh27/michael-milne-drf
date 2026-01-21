@@ -19,7 +19,7 @@ class CustomUserManager(UserManager):
 
 class Users(AbstractUser):
     ROLE_CHOICES = [
-        ('property_owner', 'Property Owner'),
+        ('owner', 'Owner'),
         ('buyer', 'Buyer'),
         ('admin', 'Admin'),
     ]
@@ -29,6 +29,7 @@ class Users(AbstractUser):
     email = models.EmailField(max_length=255, unique=True)
     full_name = models.CharField(max_length=255, blank=True, null=True)
     image = models.ImageField(upload_to='users/', blank=True, null=True)
+    phone = models.CharField(max_length=255, blank=True, null=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
     
     otp = models.CharField(max_length=6, blank=True, null=True)

@@ -324,7 +324,7 @@ def ChangeUserStatus(request, user_id):
     serializer.save()
     return Response({
         'success': True,
-        'message': 'User status changed successfully',
+        'message': 'User suspended successfully',
         'user': UserStatusChangeSerializer(user).data
     }, status=status.HTTP_200_OK)
 
@@ -332,66 +332,82 @@ def ChangeUserStatus(request, user_id):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def social_login(request):
-    """
-    Handle social sign-up/login with email and auth_provider
-    Payload: {"email": "user@example.com", "auth_provider": "google"}
-    """
     email = request.data.get('email')
+    full_name = request.data.get('full_name')
     auth_provider = request.data.get('auth_provider')
-    
-    if not email or not auth_provider:
-        return Response({
-            'success': False,
-            'message': 'Email and auth_provider are required.'
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
-    if '@' not in email:
-        return Response({
-            'success': False,
-            'message': 'Invalid email format.'
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
-    try:
-        user = Users.objects.get(email=email)
-        
-        tokens = get_tokens_for_user(user)
-        
-        return Response({
-            'success': True,
-            'message': 'Login successful',
-            'user': UserProfileSerializer(user).data,
-            'tokens': tokens,
-            'is_new_user': False
-        }, status=status.HTTP_200_OK)
-        
-    except Users.DoesNotExist:
-        try:
-            user = Users.objects.create(
-                email=email,
-                full_name=email.split('@')[0], 
-                auth_provider=auth_provider,
-                is_active=True  
-            )
-            
-            tokens = get_tokens_for_user(user)
-            
-            return Response({
-                'success': True,
-                'message': 'Registration completed successfully',
-                'user': UserProfileSerializer(user).data,
-                'tokens': tokens,
-                'is_new_user': True
-            }, status=status.HTTP_201_CREATED)
-            
-        except Exception as e:
-            return Response({
-                'success': False,
-                'message': f'Failed to create user. Please try again.'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-    except Exception as e:
-        return Response({
-            'success': False,
-            'message': f'An error occurred: {str(e)}'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    image_url = request.data.get('image')
 
+    """Validate required fields"""
+    if not email or not full_name or not auth_provider:
+        return Response({
+            "status": "error",
+            "message": "Missing required fields",
+            "errors": {
+                "email": "This field is required." if not email else None,
+                "full_name": "This field is required." if not full_name else None,
+                "auth_provider": "This field is required." if not auth_provider else None,
+            }
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    """Get or create user"""
+    user, created = Users.objects.get_or_create(
+        email=email,
+        defaults={
+            'username': email,
+            'full_name': full_name,
+            'auth_provider': auth_provider,
+        }
+    )
+
+    """If user already exists, update fields if needed"""
+    if not created:
+        user.full_name = full_name
+        user.auth_provider = auth_provider
+        user.save()
+
+    """Handle image URL - download and save if provided"""
+    if image_url and (created or not user.image):
+        try:
+            import requests
+            from django.core.files.base import ContentFile
+            from urllib.parse import urlparse
+            import os
+
+            response = requests.get(image_url, timeout=10)
+            if response.status_code == 200:
+                """Extract filename from URL or generate one"""
+                parsed_url = urlparse(image_url)
+                filename = os.path.basename(parsed_url.path) or f"{user.id}_profile.jpg"
+                
+                user.image.save(
+                    filename,
+                    ContentFile(response.content),
+                    save=True
+                )
+        except Exception as e:
+            print(f"Error downloading image: {e}")
+            """Continue without image - don't fail the signup"""
+
+    """Generate tokens"""
+    refresh = RefreshToken.for_user(user)
+    access_token = refresh.access_token
+
+    token = {
+        'refresh': str(refresh),
+        'access': str(access_token),
+    }
+
+    user_details = {
+        'id': user.id,
+        'full_name': user.full_name,
+        'email': user.email,
+        'image': user.image.url if user.image else None,
+    }
+
+    return Response({
+        'status': 'success',
+        'message': 'Successfully authenticated.',
+        'user': user_details,
+        'token': token,
+    }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+    

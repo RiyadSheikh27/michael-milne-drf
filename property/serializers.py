@@ -1,0 +1,133 @@
+from rest_framework import serializers
+from .models import *
+
+"""Start of Serializer Section"""
+
+class PropertyFeatureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyFeature
+        fields = ['id', 'feature', 'createdAt', 'updatedAt']
+        read_only_fields = ['id', 'createdAt', 'updatedAt']
+
+class PropertyImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyImage
+        fields = ['id', 'image', 'createdAt', 'updatedAt']
+        read_only_fields = ['id', 'createdAt', 'updatedAt']
+
+class PropertyInspectionReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyInspectionReport
+        fields = ['id', 'report', 'createdAt', 'updatedAt']
+        read_only_fields = ['id', 'createdAt', 'updatedAt']
+    
+class PropertyOptionalReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyOptionalReport
+        fields = ['id', 'report', 'createdAt', 'updatedAt']
+        read_only_fields = ['id', 'createdAt', 'updatedAt']
+
+class PropertyCreateUpdateSerializer(serializers.ModelSerializer):
+    images = serializers.ListField(child=serializers.ImageField(), write_only=True, required=False, allow_empty=True)
+    inspection_reports = serializers.ListField(child=serializers.FileField(), write_only=True, required=False, allow_empty=True)
+    optional_reports = serializers.ListField(child=serializers.FileField(), write_only=True, required=False, allow_empty=True)
+    features = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_empty=True)
+    
+    class Meta:
+        model = Property
+        fields = ['id', 'propertyName', 'propertyType', 'propertyBathrooms', 'propertyBedrooms', 'propertyParking', 'propertyBuildYear', 'propertyHasPool', 'propertyIsStrataProperty', 'propertyBuiltIn', 'status', 'propertyFeatureImage', 'propertyDescription', 'images', 'inspection_reports', 'optional_reports', 'features', 'createdAt', 'updatedAt']
+        read_only_fields = ['id', 'createdAt', 'updatedAt']
+
+    def validate_images(self, value):
+        """Validate maximum number of images"""
+        if len(value) > 10:
+            raise serializers.ValidationError("Maximum 10 images allowed.")
+        return value
+
+    def validate_inspection_reports(self, value):
+        """Validate maximum number of inspection reports"""
+        if len(value) > 5:
+            raise serializers.ValidationError("Maximum 5 inspection reports allowed.")
+        return value
+    
+    def validate_optional_reports(self, value):
+        """Validate maximum number of optional reports"""
+        if len(value) > 5:
+            raise serializers.ValidationError("Maximum 5 optional reports allowed.")
+        return value
+    
+    def validate_features(self, value):
+        """Validate maximum number of features"""
+        if len(value) > 20:
+            raise serializers.ValidationError("Maximum 20 features allowed.")
+        return value
+
+class PropertyListSerializer(serializers.ModelSerializer):
+    """Serializer for property list view"""
+    class Meta:
+        model = Property
+        fields = [
+            'id',
+            'slug',
+            'propertyName',
+            'propertyAddress',
+            'propertyType',
+            'status',
+            'propertyFeatureImage',
+            'propertyBuiltIn',
+            'createdAt',
+            'updatedAt'
+        ]
+
+class PropertyDetailSerializer(serializers.ModelSerializer):
+    """Serializer for property detail view with related data"""
+    
+    owner_name = serializers.CharField(source='owner.get_full_name', read_only=True)
+    images = PropertyImageSerializer(many=True, read_only=True)
+    inspection_reports = PropertyInspectionReportSerializer(many=True, read_only=True)
+    optional_reports = PropertyOptionalReportSerializer(many=True, read_only=True)
+    features = PropertyFeatureSerializer(many=True, read_only=True)
+    
+    total_photos = serializers.IntegerField(read_only=True)
+    total_inspection_reports = serializers.IntegerField(read_only=True)
+    total_optional_reports = serializers.IntegerField(read_only=True)
+    checkboxes_checked = serializers.IntegerField(read_only=True)
+    qr_code_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Property
+        fields = [
+            'id',
+            'slug',
+            'owner_name',
+            'propertyName',
+            'propertyAddress',
+            'propertyType',
+            'propertyBedrooms',
+            'propertyBathrooms',
+            'propertyParking',
+            'propertyBuildYear',
+            'propertyHasPool',
+            'propertyIsStrataProperty',
+            'status',
+            'propertyFeatureImage',
+            'images',
+            'inspection_reports',
+            'optional_reports',
+            'features',
+            'total_photos',
+            'total_inspection_reports',
+            'total_optional_reports',
+            'total_views',
+            'checkboxes_checked',
+            'qr_code_url',
+            'created',
+            'modified',
+        ]
+    
+    def get_qr_code_url(self, obj):
+        """Generate QR code URL for property"""
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(f'/api/properties/{obj.slug}/')
+        return None

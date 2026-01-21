@@ -8,7 +8,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Users
-        fields = ['full_name', 'email', 'password']
+        fields = ['role', 'full_name', 'email', 'password']
 
     def validate_email(self, value):
         if Users.objects.filter(email=value).exists():
@@ -73,18 +73,19 @@ class ChangePasswordSerializer(serializers.Serializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Users
-        fields = ['id', 'full_name', 'email', 'image', 'role', 'created_at']
+        fields = ['id', 'full_name', 'email', 'phone', 'image', 'role', 'created_at']
         read_only_fields = ['id', 'email', 'role', 'created_at']
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Users
-        fields = ['full_name', 'image']
+        fields = ['full_name', 'image', 'phone']
 
     def update(self, instance, validated_data):
         """Update fields"""
         instance.full_name = validated_data.get('full_name', instance.full_name)
+        instance.phone = validated_data.get('phone', instance.phone)
 
         """Handle image update"""
         new_image = validated_data.get('image', None)

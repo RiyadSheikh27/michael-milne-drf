@@ -1,31 +1,66 @@
 from rest_framework.permissions import BasePermission
 
 class IsAdmin(BasePermission):
-    """Only allow admin users"""
+    """
+    Allows access only to admin users
+    """
+
     def has_permission(self, request, view):
         return (
-            request.user and 
-            request.user.is_authenticated and 
+            request.user.is_authenticated and
             request.user.role == 'admin'
         )
 
 
+
 class IsAdminOrReadOnly(BasePermission):
-    """Admin has full access, others have read-only"""
+    """
+    Admin: full access
+    Others: read-only
+    """
+
     def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        
-        # Read permissions for all authenticated users
-        if request.method in ['GET', 'HEAD', 'OPTIONS']:
+        if request.method in SAFE_METHODS:
             return True
-        
-        # Write permissions only for admin
-        return request.user.role == 'admin'
+
+        return (
+            request.user.is_authenticated and
+            request.user.role == 'admin'
+        )
 
 class IsOwnerOrReadOnly(BasePermission):
-    """Owner has full access, others have read-only"""
-    def has_object_permission(self, request, view, obj):
-        if request.method in ['GET', 'HEAD', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE']:
+    """
+    - Property owner can CREATE, UPDATE, DELETE their own property
+    - Admin can do everything
+    - Buyer can READ only
+    """
+
+    def has_permission(self, request, view):
+        """Everyone can READ"""
+        if request.method in SAFE_METHODS:
             return True
-        return obj.user == request.user or request.user.role == 'admin'
+
+        """CREATE: only property owner"""
+        if request.method == 'POST':
+            return (
+                request.user.is_authenticated and
+                request.user.role == 'property_owner'
+            )
+
+        """UPDATE / DELETE: checked at object level"""
+        return request.user.is_authenticated
+
+    def has_object_permission(self, request, view, obj):
+        """Everyone can READ"""
+        if request.method in SAFE_METHODS:
+            return True
+
+        """Admin can do anything"""
+        if request.user.role == 'admin':
+            return True
+
+        """Property owner can modify ONLY their own property"""
+        return (
+            request.user.role == 'owner' and
+            obj.owner == request.user
+        )

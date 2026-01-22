@@ -36,10 +36,6 @@ class IsOwnerOrReadOnly(BasePermission):
     """
 
     def has_permission(self, request, view):
-        """Everyone can READ"""
-        if request.method in SAFE_METHODS:
-            return True
-
         """CREATE: only property owner"""
         if request.method == 'POST':
             return (

@@ -1,6 +1,7 @@
 from django.urls import path
-from .views import PropertyListCreateAPIView
+from .views import PropertyListCreateAPIView, PropertyDetailAPIView
 
 urlpatterns = [
-    path('owner/property/', PropertyListCreateAPIView.as_view(), name='property-list-create'),
+    path('property/', PropertyListCreateAPIView.as_view(), name='property-list-create'),
+    path('property/<slug:slug>/', PropertyDetailAPIView.as_view(), name='property-detail'),
 ]

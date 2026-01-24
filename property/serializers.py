@@ -35,7 +35,7 @@ class PropertyCreateUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Property
-        fields = ['id', 'propertyName', 'propertyType', 'propertyBathrooms', 'propertyBedrooms', 'propertyParking', 'propertyBuildYear', 'propertyHasPool', 'propertyIsStrataProperty', 'propertyBuiltIn', 'status', 'propertyFeatureImage', 'propertyDescription', 'images', 'inspection_reports', 'optional_reports', 'features', 'createdAt', 'updatedAt']
+        fields = ['id', 'propertyName', 'propertyType', 'propertyBathrooms', 'propertyBedrooms', 'propertyParking', 'propertyBuildYear', 'propertyHasPool', 'propertyIsStrataProperty', 'propertyBuiltIn', 'status', 'propertyFeatureImage', 'images', 'inspection_reports', 'optional_reports', 'features', 'createdAt', 'updatedAt']
         read_only_fields = ['id', 'createdAt', 'updatedAt']
 
     def validate_images(self, value):
@@ -121,8 +121,8 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
             'total_views',
             'checkboxes_checked',
             'qr_code_url',
-            'created',
-            'modified',
+            'createdAt',
+            'updatedAt',
         ]
     
     def get_qr_code_url(self, obj):

@@ -1,4 +1,4 @@
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 class IsAdmin(BasePermission):
     """
@@ -40,7 +40,7 @@ class IsOwnerOrReadOnly(BasePermission):
         if request.method == 'POST':
             return (
                 request.user.is_authenticated and
-                request.user.role == 'property_owner'
+                request.user.role == 'owner'
             )
 
         """UPDATE / DELETE: checked at object level"""

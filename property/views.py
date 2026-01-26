@@ -1,3 +1,6 @@
+import qrcode
+import base64
+from io import BytesIO
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
@@ -151,7 +154,7 @@ class PropertyDetailAPIView(CustomResponseMixin, APIView):
     DELETE: Delete property (owner only)
     """
     
-    permission_classes = [IsOwnerOrReadOnly]
+    permission_classes = [IsAuthenticated]
     
     def get_object(self, slug):
         """Get property object by slug"""
@@ -293,6 +296,64 @@ class PropertyDetailAPIView(CustomResponseMixin, APIView):
         except Exception as e:
             return self.error_response(
                 message="An error occurred while deleting the property",
+                errors=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PropertyQRCodeAPIView(CustomResponseMixin, APIView):
+    """Generate QR Code for a property with custom JSON response"""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, slug):
+        try:
+            """Get property object"""
+            property_obj = get_object_or_404(Property, slug=slug)
+            self.check_object_permissions(request, property_obj)
+
+            """Build property URL"""
+            property_url = request.build_absolute_uri(f'/property/{property_obj.slug}/')
+
+            """Prepare QR data"""
+            qr_data_text = f"Property Name: {property_obj.propertyName}\n" \
+                           f"Address: {property_obj.propertyAddress}\n" \
+                           f"URL: {property_url}"
+
+            """Generate QR code"""
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(qr_data_text)
+            qr.make(fit=True)
+            img = qr.make_image(fill_color='black', back_color='white')
+
+            """Save image to memory"""
+            buffer = BytesIO()
+            img.save(buffer, format='PNG')
+            buffer.seek(0)
+
+            """Encode image as base64 for JSON"""
+            img_base64 = base64.b64encode(buffer.read()).decode()
+
+            """Return custom JSON response"""
+            return self.success_response(
+                message="QR Code generated successfully",
+                data={
+                    "property_name": property_obj.propertyName,
+                    "property_address": property_obj.propertyAddress,
+                    "property_url": property_url,
+                    "qr_code": img_base64  # can be rendered as image in frontend
+                },
+                status_code=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return self.error_response(
+                message="An error occurred while generating the QR code",
                 errors=str(e),
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

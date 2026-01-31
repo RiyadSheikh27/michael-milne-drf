@@ -55,10 +55,12 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'drf_yasg',
+    'django_extensions',
 
     'authentication',
     'utils',
     'property',
+    'payments',
 ]
 
 MIDDLEWARE = [
@@ -155,7 +157,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'static'
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 """Swagger Settings"""
 
@@ -187,5 +189,7 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
 
 """STRIPE KEYS"""
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
+STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY')
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
 
 

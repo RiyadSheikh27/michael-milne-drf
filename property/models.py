@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 import uuid
 from django.utils.text import slugify
 
-user = get_user_model()
+User = get_user_model()
 
 """Create your models here."""
 class TimeStampedModel(models.Model):
@@ -13,12 +13,12 @@ class TimeStampedModel(models.Model):
 
     class Meta:
         abstract = True
-
+        
 
 class Property(TimeStampedModel):
-    owner = models.ForeignKey(user, on_delete=models.CASCADE, related_name='properties')
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='properties')
     propertyName = models.CharField(max_length=255)
-    slug = models.SlugField(max_length=255, unique=True)
+    slug = models.SlugField(max_length=255, unique=True, blank=True)
     propertyAddress = models.CharField(max_length=255)
     propertyType = models.CharField(max_length=255)
 
@@ -31,10 +31,8 @@ class Property(TimeStampedModel):
     propertyIsStrataProperty = models.BooleanField(default=False)
 
     propertyFeatureImage = models.ImageField(upload_to='property_feature_images/')
-    propertyBuiltIn = models.CharField(max_length=100, null=True, blank=True)
 
     status = models.BooleanField(default=True)
-
     total_views = models.PositiveIntegerField(default=0)
 
     class Meta:
@@ -47,12 +45,35 @@ class Property(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.propertyName)
+            base_slug = slugify(self.propertyName)
+            slug = base_slug
+            counter = 1
+            while Property.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            self.slug = slug
         super().save(*args, **kwargs)
 
     def increment_views(self):
         self.total_views += 1
         self.save(update_fields=['total_views'])
+
+    def is_unlocked_by(self, user):
+        """Check if property is unlocked by user"""
+        if not user.is_authenticated:
+            return False
+        
+        """Owner can always see their own properties"""
+        if self.owner == user:
+            return True
+        
+        """Check if user has unlocked this property"""
+        from payments.models import PropertyUnlock
+        return PropertyUnlock.objects.filter(
+            user=user,
+            property=self,
+            payment_status='succeeded'
+        ).exists()
 
     @property
     def total_photos(self):
@@ -68,11 +89,12 @@ class Property(TimeStampedModel):
 
     @property
     def checkboxes_checked(self):
-        return self.propertyHasPool + self.propertyIsStrataProperty
+        return int(self.propertyHasPool) + int(self.propertyIsStrataProperty)
+
 
 class PropertyImage(TimeStampedModel):
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='images')
-    image = models.ImageField(upload_to='property_images/', null=True, blank=True)
+    image = models.ImageField(upload_to='property_images/')
     
     class Meta:
         verbose_name = 'Property Image'
@@ -82,9 +104,10 @@ class PropertyImage(TimeStampedModel):
     def __str__(self):
         return f"Image for {self.property.propertyName}"
 
+
 class PropertyInspectionReport(TimeStampedModel):
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='inspection_reports')
-    report = models.FileField(upload_to='property_inspection_reports/', null=True, blank=True)
+    report = models.FileField(upload_to='property_inspection_reports/')
     
     class Meta:
         verbose_name = 'Property Inspection Report'
@@ -94,9 +117,10 @@ class PropertyInspectionReport(TimeStampedModel):
     def __str__(self):
         return f"Inspection Report for {self.property.propertyName}"
 
+
 class PropertyOptionalReport(TimeStampedModel):
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='optional_reports')
-    report = models.FileField(upload_to='property_optional_reports/', null=True, blank=True)
+    report = models.FileField(upload_to='property_optional_reports/')
     
     class Meta:
         verbose_name = 'Property Optional Report'
@@ -105,6 +129,7 @@ class PropertyOptionalReport(TimeStampedModel):
 
     def __str__(self):
         return f"Optional Report for {self.property.propertyName}"
+
 
 class PropertyFeature(TimeStampedModel):
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='features')
@@ -116,4 +141,4 @@ class PropertyFeature(TimeStampedModel):
         ordering = ['-createdAt']
 
     def __str__(self):
-        return f"Feature for {self.property.propertyName}"
+        return f"{self.feature} - {self.property.propertyName}"

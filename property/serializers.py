@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import *
+from payments.models import SystemSettings
 
 """Start of Serializer Section"""
 
@@ -35,7 +36,7 @@ class PropertyCreateUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Property
-        fields = ['id', 'propertyName', 'propertyType', 'propertyBathrooms', 'propertyBedrooms', 'propertyParking', 'propertyBuildYear', 'propertyHasPool', 'propertyIsStrataProperty', 'propertyBuiltIn', 'status', 'propertyFeatureImage', 'images', 'inspection_reports', 'optional_reports', 'features', 'createdAt', 'updatedAt']
+        fields = ['id', 'propertyName', 'propertyAddress', 'propertyType', 'propertyBathrooms', 'propertyBedrooms', 'propertyParking', 'propertyBuildYear', 'propertyHasPool', 'propertyIsStrataProperty', 'status', 'propertyFeatureImage', 'images', 'inspection_reports', 'optional_reports', 'features', 'createdAt', 'updatedAt']
         read_only_fields = ['id', 'createdAt', 'updatedAt']
 
     def validate_images(self, value):
@@ -64,6 +65,9 @@ class PropertyCreateUpdateSerializer(serializers.ModelSerializer):
 
 class PropertyListSerializer(serializers.ModelSerializer):
     """Serializer for property list view"""
+    unlock_price = serializers.SerializerMethodField()
+    is_unlocked = serializers.SerializerMethodField()
+
     class Meta:
         model = Property
         fields = [
@@ -71,18 +75,39 @@ class PropertyListSerializer(serializers.ModelSerializer):
             'slug',
             'propertyName',
             'propertyAddress',
-            'propertyType',
             'status',
             'propertyFeatureImage',
-            'propertyBuiltIn',
+            'total_inspection_reports',
+            'total_optional_reports',
+            'propertyBedrooms',
+            'propertyBathrooms',
+            'propertyParking',
+            'propertyBuildYear',
+            'unlock_price',
+            'is_unlocked',
             'createdAt',
             'updatedAt'
         ]
 
+    def get_unlock_price(self, obj):
+        """Get the unlock price from system settings"""
+        settings = SystemSettings.get_settings()
+        return float(settings.property_unlock_price)
+
+    def get_is_unlocked(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.is_unlocked_by(request.user)
+        return False
+
 class PropertyDetailSerializer(serializers.ModelSerializer):
     """Serializer for property detail view with related data"""
     
-    owner_name = serializers.CharField(source='owner.get_full_name', read_only=True)
+    owner_name = serializers.CharField(source='owner.full_name', read_only=True)
+    owner_email = serializers.CharField(source='owner.email', read_only=True)
+    owner_phone = serializers.CharField(source='owner.phone', read_only=True)
+    owner_image = serializers.CharField(source='owner.image', read_only=True)
+    
     images = PropertyImageSerializer(many=True, read_only=True)
     inspection_reports = PropertyInspectionReportSerializer(many=True, read_only=True)
     optional_reports = PropertyOptionalReportSerializer(many=True, read_only=True)
@@ -100,6 +125,9 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
             'id',
             'slug',
             'owner_name',
+            'owner_email',
+            'owner_phone',
+            'owner_image',
             'propertyName',
             'propertyAddress',
             'propertyType',

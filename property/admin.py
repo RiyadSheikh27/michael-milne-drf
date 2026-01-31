@@ -1,73 +1,75 @@
 from django.contrib import admin
-from django.utils.html import format_html
-from .models import *
+from .models import (
+    Property,
+    PropertyImage,
+    PropertyInspectionReport,
+    PropertyOptionalReport,
+    PropertyFeature
+)
 
-"""----------------- INLINES -----------------"""
-
+# --------------------------
+# Inlines for related models (Add-only)
+# --------------------------
 class PropertyImageInline(admin.TabularInline):
     model = PropertyImage
     extra = 1
-    fields = ('image_tag', 'image')
-    readonly_fields = ('image_tag',)
-
-    def image_tag(self, obj):
-        if obj.image:
-            return format_html('<img src="{}" width="100"/>', obj.image.url)
-        return "-"
-    image_tag.short_description = "Preview"
-
+    can_delete = False  # prevent deletion from Property admin
 
 class PropertyInspectionReportInline(admin.TabularInline):
     model = PropertyInspectionReport
     extra = 1
-    fields = ('report',)
-
+    can_delete = False  # prevent deletion from Property admin
 
 class PropertyOptionalReportInline(admin.TabularInline):
     model = PropertyOptionalReport
     extra = 1
-    fields = ('report',)
-
+    can_delete = False  # prevent deletion from Property admin
 
 class PropertyFeatureInline(admin.TabularInline):
     model = PropertyFeature
     extra = 1
-    fields = ('feature',)
+    can_delete = False  # prevent deletion from Property admin
 
-
-"""----------------- MAIN ADMIN -----------------"""
-
+# --------------------------
+# Property Admin
+# --------------------------
 @admin.register(Property)
 class PropertyAdmin(admin.ModelAdmin):
-    list_display = (
-        'propertyName', 'owner', 'propertyType', 'total_views',
-        'propertyHasPool', 'propertyIsStrataProperty', 'status'
-    )
-    list_filter = ('propertyType', 'status', 'propertyHasPool', 'propertyIsStrataProperty')
-    search_fields = ('propertyName', 'owner__username', 'propertyAddress')
-    readonly_fields = ('slug', 'total_views')
-
+    list_display = [
+        'propertyName',
+        'slug',
+        'owner',
+        'propertyType',
+        'status',
+        'total_views',
+        'createdAt',
+    ]
+    list_filter = ['status', 'propertyType', 'propertyHasPool', 'propertyIsStrataProperty']
+    search_fields = ['propertyName', 'slug', 'owner__username', 'propertyAddress']
+    readonly_fields = ['slug', 'total_views', 'createdAt', 'updatedAt']
     inlines = [
         PropertyImageInline,
         PropertyInspectionReportInline,
         PropertyOptionalReportInline,
-        PropertyFeatureInline
+        PropertyFeatureInline,
     ]
+    ordering = ['-createdAt']
 
-    fieldsets = (
-        ('Basic Info', {
-            'fields': ('owner', 'propertyName', 'slug', 'propertyAddress', 'propertyType')
-        }),
-        ('Details', {
-            'fields': ('propertyBedrooms', 'propertyBathrooms', 'propertyParking', 'propertyBuildYear')
-        }),
-        ('Features & Status', {
-            'fields': ('propertyHasPool', 'propertyIsStrataProperty', 'status', 'propertyFeatureImage')
-        }),
-    )
+# --------------------------
+# Admin for individual models (full CRUD)
+# --------------------------
+@admin.register(PropertyImage)
+class PropertyImageAdmin(admin.ModelAdmin):
+    list_display = ['property', 'image', 'createdAt']
 
-    def save_model(self, request, obj, form, change):
-        """Automatically assign owner if not set"""
-        if not obj.owner:
-            obj.owner = request.user
-        super().save_model(request, obj, form, change)
+@admin.register(PropertyInspectionReport)
+class PropertyInspectionReportAdmin(admin.ModelAdmin):
+    list_display = ['property', 'report', 'createdAt']
+
+@admin.register(PropertyOptionalReport)
+class PropertyOptionalReportAdmin(admin.ModelAdmin):
+    list_display = ['property', 'report', 'createdAt']
+
+@admin.register(PropertyFeature)
+class PropertyFeatureAdmin(admin.ModelAdmin):
+    list_display = ['feature', 'property', 'createdAt']

@@ -164,6 +164,20 @@ class PropertyDetailAPIView(CustomResponseMixin, APIView):
         """Retrieve property details and increment view count"""
         try:
             property_obj = self.get_object(slug)
+
+            """Check if Unlocked by User"""
+            if not property_obj.is_unlocked_by(request.user):
+                settings_obj = SystemSettings.get_settings()
+                return self.error_response(
+                    message="Property is locked. Please unlock to view details.",
+                    errors={
+                        "unlocked": True,
+                        "unlock_price": float(settings_obj.property_unlock_price),
+                        "currency": "USD",
+                        "method": "You need to make a payment to unlock this property."
+                        },
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
             
             """Check permission"""
             self.check_object_permissions(request, property_obj)
@@ -354,6 +368,42 @@ class PropertyQRCodeAPIView(CustomResponseMixin, APIView):
         except Exception as e:
             return self.error_response(
                 message="An error occurred while generating the QR code",
+                errors=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+
+class FeaturedPropertiesAPIView(CustomResponseMixin, APIView):
+    """
+    GET: Retrieve top 3 most viewed properties
+    Public endpoint - no authentication required
+    """
+    
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    
+    def get(self, request):
+        """Get top 3 properties by views"""
+        try:
+            """Get top 3 active properties ordered by total_views"""
+            featured_properties = Property.objects.filter(
+                status=True
+            ).select_related('owner').order_by('-total_views')[:3]
+            
+            serializer = PropertyListSerializer(
+                featured_properties,
+                many=True,
+                context={'request': request}
+            )
+            
+            return self.success_response(
+                message="Featured properties retrieved successfully",
+                data=serializer.data,
+                status_code=status.HTTP_200_OK
+            )
+        
+        except Exception as e:
+            return self.error_response(
+                message="An error occurred while retrieving featured properties",
                 errors=str(e),
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

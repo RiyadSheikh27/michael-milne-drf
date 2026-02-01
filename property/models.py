@@ -142,3 +142,33 @@ class PropertyFeature(TimeStampedModel):
 
     def __str__(self):
         return f"{self.feature} - {self.property.propertyName}"
+
+
+class Bookmark(TimeStampedModel):
+    """User bookmarks for properties"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookmarks')
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='bookmarks')
+    
+    class Meta:
+        verbose_name = 'Bookmark'
+        verbose_name_plural = 'Bookmarks'
+        ordering = ['-createdAt']
+        unique_together = ['user', 'property']  # Prevent duplicate bookmarks
+    
+    def __str__(self):
+        return f"{self.user.email} bookmarked {self.property.propertyName}"
+
+
+class Inspection(TimeStampedModel):
+    """User inspection bookings for properties"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='inspections')
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='inspections')
+    inspection_datetime = models.DateTimeField()
+    
+    class Meta:
+        verbose_name = 'Inspection'
+        verbose_name_plural = 'Inspections'
+        ordering = ['-inspection_datetime']
+    
+    def __str__(self):
+        return f"{self.user.email} - {self.property.propertyName} on {self.inspection_datetime}"

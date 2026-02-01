@@ -67,6 +67,7 @@ class PropertyListSerializer(serializers.ModelSerializer):
     """Serializer for property list view"""
     unlock_price = serializers.SerializerMethodField()
     is_unlocked = serializers.SerializerMethodField()
+    is_bookmarked = serializers.SerializerMethodField()
 
     class Meta:
         model = Property
@@ -85,6 +86,7 @@ class PropertyListSerializer(serializers.ModelSerializer):
             'propertyBuildYear',
             'unlock_price',
             'is_unlocked',
+            'is_bookmarked',
             'createdAt',
             'updatedAt'
         ]
@@ -98,6 +100,13 @@ class PropertyListSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.is_unlocked_by(request.user)
+        return False
+
+    def get_is_bookmarked(self, obj):
+        """Check if property is bookmarked by current user"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return Bookmark.objects.filter(user=request.user, property=obj).exists()
         return False
 
 class PropertyDetailSerializer(serializers.ModelSerializer):
@@ -118,6 +127,8 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
     total_optional_reports = serializers.IntegerField(read_only=True)
     checkboxes_checked = serializers.IntegerField(read_only=True)
     qr_code_url = serializers.SerializerMethodField()
+    is_bookmarked = serializers.SerializerMethodField()
+    is_unlocked = serializers.SerializerMethodField()
     
     class Meta:
         model = Property
@@ -138,6 +149,7 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
             'propertyHasPool',
             'propertyIsStrataProperty',
             'status',
+            'is_unlocked',
             'propertyFeatureImage',
             'images',
             'inspection_reports',
@@ -149,6 +161,7 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
             'total_views',
             'checkboxes_checked',
             'qr_code_url',
+            'is_bookmarked',
             'createdAt',
             'updatedAt',
         ]
@@ -159,3 +172,68 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
         if request:
             return request.build_absolute_uri(f'/api/properties/{obj.slug}/')
         return None
+
+    def get_is_bookmarked(self, obj):
+        """Check if property is bookmarked by current user"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return Bookmark.objects.filter(user=request.user, property=obj).exists()
+        return False
+    
+    def get_is_unlocked(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.is_unlocked_by(request.user)
+        return False
+
+
+# NEW SERIALIZERS FOR BOOKMARKS AND INSPECTIONS
+
+class BookmarkSerializer(serializers.ModelSerializer):
+    """Serializer for bookmark with property details"""
+    property = PropertyListSerializer(read_only=True)
+    property_id = serializers.UUIDField(write_only=True)
+    
+    class Meta:
+        model = Bookmark
+        fields = ['id', 'property', 'property_id', 'createdAt', 'updatedAt']
+        read_only_fields = ['id', 'createdAt', 'updatedAt']
+    
+    def validate_property_id(self, value):
+        """Validate that property exists"""
+        if not Property.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Property does not exist.")
+        return value
+
+
+class InspectionSerializer(serializers.ModelSerializer):
+    """Serializer for inspection booking"""
+    property = PropertyListSerializer(read_only=True)
+    property_id = serializers.UUIDField(write_only=True)
+    
+    class Meta:
+        model = Inspection
+        fields = ['id', 'property', 'property_id', 'inspection_datetime', 'createdAt', 'updatedAt']
+        read_only_fields = ['id', 'createdAt', 'updatedAt']
+    
+    def validate_property_id(self, value):
+        """Validate that property exists"""
+        if not Property.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Property does not exist.")
+        return value
+    
+    def validate_inspection_datetime(self, value):
+        """Validate that inspection datetime is in the future"""
+        from django.utils import timezone
+        if value < timezone.now():
+            raise serializers.ValidationError("Inspection date/time must be in the future.")
+        return value
+
+
+class UserStatisticsSerializer(serializers.Serializer):
+    """Serializer for user statistics"""
+    total_bookmarks = serializers.IntegerField()
+    total_inspections = serializers.IntegerField()
+    total_properties = serializers.IntegerField()
+    bookmarked_properties = PropertyListSerializer(many=True)
+    upcoming_inspections = InspectionSerializer(many=True)

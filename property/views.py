@@ -12,6 +12,7 @@ from django.db import transaction
 from drf_yasg.utils import swagger_auto_schema
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import SAFE_METHODS
+from django.utils import timezone
 
 
 """Start of views for property section"""
@@ -165,19 +166,9 @@ class PropertyDetailAPIView(CustomResponseMixin, APIView):
         try:
             property_obj = self.get_object(slug)
 
-            """Check if Unlocked by User"""
-            if not property_obj.is_unlocked_by(request.user):
-                settings_obj = SystemSettings.get_settings()
-                return self.error_response(
-                    message="Property is locked. Please unlock to view details.",
-                    errors={
-                        "unlocked": True,
-                        "unlock_price": float(settings_obj.property_unlock_price),
-                        "currency": "USD",
-                        "method": "You need to make a payment to unlock this property."
-                        },
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
+
+            settings_obj = SystemSettings.get_settings()
+
             
             """Check permission"""
             self.check_object_permissions(request, property_obj)
@@ -404,6 +395,336 @@ class FeaturedPropertiesAPIView(CustomResponseMixin, APIView):
         except Exception as e:
             return self.error_response(
                 message="An error occurred while retrieving featured properties",
+                errors=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+# NEW VIEWS FOR BOOKMARKS
+
+class BookmarkListCreateAPIView(CustomResponseMixin, APIView):
+    """
+    GET: List all bookmarks for authenticated user
+    POST: Create a new bookmark
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """Get all bookmarks for current user"""
+        try:
+            bookmarks = Bookmark.objects.filter(
+                user=request.user
+            ).select_related('property', 'property__owner')
+            
+            serializer = BookmarkSerializer(bookmarks, many=True, context={'request': request})
+            
+            return self.success_response(
+                message="Bookmarks retrieved successfully",
+                data=serializer.data,
+                status_code=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return self.error_response(
+                message="An error occurred while retrieving bookmarks",
+                errors=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def post(self, request):
+        """Create a new bookmark"""
+        serializer = BookmarkSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return self.error_response(
+                message="Validation failed",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            property_obj = Property.objects.get(id=serializer.validated_data['property_id'])
+            
+            # Check if bookmark already exists
+            bookmark, created = Bookmark.objects.get_or_create(
+                user=request.user,
+                property=property_obj
+            )
+            
+            if not created:
+                return self.error_response(
+                    message="Property is already bookmarked",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            response_serializer = BookmarkSerializer(bookmark, context={'request': request})
+            
+            return self.success_response(
+                message="Property bookmarked successfully",
+                data=response_serializer.data,
+                status_code=status.HTTP_201_CREATED
+            )
+        
+        except Property.DoesNotExist:
+            return self.error_response(
+                message="Property not found",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return self.error_response(
+                message="An error occurred while creating the bookmark",
+                errors=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class BookmarkDetailAPIView(CustomResponseMixin, APIView):
+    """
+    DELETE: Remove a bookmark
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def delete(self, request, pk):
+        """Delete a bookmark"""
+        try:
+            bookmark = get_object_or_404(
+                Bookmark,
+                id=pk,
+                user=request.user
+            )
+            
+            property_name = bookmark.property.propertyName
+            bookmark.delete()
+            
+            return self.success_response(
+                message=f"Bookmark for '{property_name}' removed successfully",
+                data=None,
+                status_code=status.HTTP_200_OK
+            )
+        
+        except Exception as e:
+            return self.error_response(
+                message="An error occurred while removing the bookmark",
+                errors=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+# NEW VIEWS FOR INSPECTIONS
+
+class InspectionListCreateAPIView(CustomResponseMixin, APIView):
+    """
+    GET: List all inspections for authenticated user
+    POST: Create a new inspection booking
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """Get all inspections for current user"""
+        try:
+            inspections = Inspection.objects.filter(
+                user=request.user
+            ).select_related('property', 'property__owner')
+            
+            serializer = InspectionSerializer(inspections, many=True, context={'request': request})
+            
+            return self.success_response(
+                message="Inspections retrieved successfully",
+                data=serializer.data,
+                status_code=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return self.error_response(
+                message="An error occurred while retrieving inspections",
+                errors=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def post(self, request):
+        """Create a new inspection booking"""
+        serializer = InspectionSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return self.error_response(
+                message="Validation failed",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            property_obj = Property.objects.get(id=serializer.validated_data['property_id'])
+            
+            inspection = Inspection.objects.create(
+                user=request.user,
+                property=property_obj,
+                inspection_datetime=serializer.validated_data['inspection_datetime']
+            )
+            
+            response_serializer = InspectionSerializer(inspection, context={'request': request})
+            
+            return self.success_response(
+                message="Inspection booked successfully",
+                data=response_serializer.data,
+                status_code=status.HTTP_201_CREATED
+            )
+        
+        except Property.DoesNotExist:
+            return self.error_response(
+                message="Property not found",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return self.error_response(
+                message="An error occurred while booking the inspection",
+                errors=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class InspectionDetailAPIView(CustomResponseMixin, APIView):
+    """
+    GET: Retrieve inspection details
+    PATCH: Update inspection datetime
+    DELETE: Cancel/delete an inspection
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, pk):
+        """Get inspection details"""
+        try:
+            inspection = get_object_or_404(
+                Inspection,
+                id=pk,
+                user=request.user
+            )
+            
+            serializer = InspectionSerializer(inspection, context={'request': request})
+            
+            return self.success_response(
+                message="Inspection retrieved successfully",
+                data=serializer.data,
+                status_code=status.HTTP_200_OK
+            )
+        
+        except Exception as e:
+            return self.error_response(
+                message="An error occurred while retrieving the inspection",
+                errors=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def patch(self, request, pk):
+        """Update inspection datetime"""
+        try:
+            inspection = get_object_or_404(
+                Inspection,
+                id=pk,
+                user=request.user
+            )
+            
+            serializer = InspectionSerializer(
+                data=request.data,
+                partial=True
+            )
+            
+            if not serializer.is_valid():
+                return self.error_response(
+                    message="Validation failed",
+                    errors=serializer.errors,
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if 'inspection_datetime' in serializer.validated_data:
+                inspection.inspection_datetime = serializer.validated_data['inspection_datetime']
+                inspection.save()
+            
+            response_serializer = InspectionSerializer(inspection, context={'request': request})
+            
+            return self.success_response(
+                message="Inspection updated successfully",
+                data=response_serializer.data,
+                status_code=status.HTTP_200_OK
+            )
+        
+        except Exception as e:
+            return self.error_response(
+                message="An error occurred while updating the inspection",
+                errors=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def delete(self, request, pk):
+        """Cancel/delete an inspection"""
+        try:
+            inspection = get_object_or_404(
+                Inspection,
+                id=pk,
+                user=request.user
+            )
+            
+            property_name = inspection.property.propertyName
+            inspection.delete()
+            
+            return self.success_response(
+                message=f"Inspection for '{property_name}' cancelled successfully",
+                data=None,
+                status_code=status.HTTP_200_OK
+            )
+        
+        except Exception as e:
+            return self.error_response(
+                message="An error occurred while cancelling the inspection",
+                errors=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+# NEW VIEW FOR USER STATISTICS
+
+class UserStatisticsAPIView(CustomResponseMixin, APIView):
+    """
+    GET: Retrieve user statistics (bookmarks, inspections, total properties)
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """Get comprehensive statistics for current user"""
+        try:
+            user = request.user
+            
+            # Get bookmarked properties
+            bookmarked_properties = Property.objects.filter(
+                bookmarks__user=user
+            ).select_related('owner')
+            
+            # Get upcoming inspections
+            upcoming_inspections = Inspection.objects.filter(
+                user=user,
+                inspection_datetime__gte=timezone.now()
+            ).select_related('property', 'property__owner').order_by('inspection_datetime')
+            
+            # Get total properties in the site
+            total_properties = Property.objects.filter(status=True).count()
+            
+            # Prepare statistics data
+            statistics_data = {
+                'total_bookmarks': Bookmark.objects.filter(user=user).count(),
+                'total_inspections': Inspection.objects.filter(user=user).count(),
+                'total_properties': total_properties,
+                'bookmarked_properties': bookmarked_properties,
+                'upcoming_inspections': upcoming_inspections,
+            }
+            
+            serializer = UserStatisticsSerializer(statistics_data, context={'request': request})
+            
+            return self.success_response(
+                message="User statistics retrieved successfully",
+                data=serializer.data,
+                status_code=status.HTTP_200_OK
+            )
+        
+        except Exception as e:
+            return self.error_response(
+                message="An error occurred while retrieving user statistics",
                 errors=str(e),
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

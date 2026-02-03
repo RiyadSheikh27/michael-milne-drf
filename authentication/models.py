@@ -30,6 +30,7 @@ class Users(AbstractUser):
     full_name = models.CharField(max_length=255, blank=True, null=True)
     image = models.ImageField(upload_to='users/', blank=True, null=True)
     phone = models.CharField(max_length=255, blank=True, null=True)
+    is_agent = models.BooleanField(default=False)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='buyer')
     
     otp = models.CharField(max_length=6, blank=True, null=True)

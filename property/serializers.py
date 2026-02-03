@@ -116,6 +116,7 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
     owner_email = serializers.CharField(source='owner.email', read_only=True)
     owner_phone = serializers.CharField(source='owner.phone', read_only=True)
     owner_image = serializers.CharField(source='owner.image', read_only=True)
+    owner_is_agent = serializers.BooleanField(source='owner.is_agent', read_only=True)
     
     images = PropertyImageSerializer(many=True, read_only=True)
     inspection_reports = PropertyInspectionReportSerializer(many=True, read_only=True)
@@ -139,6 +140,7 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
             'owner_email',
             'owner_phone',
             'owner_image',
+            'owner_is_agent',
             'propertyName',
             'propertyAddress',
             'propertyType',

@@ -73,19 +73,20 @@ class ChangePasswordSerializer(serializers.Serializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Users
-        fields = ['id', 'full_name', 'email', 'phone', 'image', 'role', 'created_at']
+        fields = ['id', 'full_name', 'email', 'phone', 'image', 'is_agent', 'role', 'created_at']
         read_only_fields = ['id', 'email', 'role', 'created_at']
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Users
-        fields = ['full_name', 'image', 'phone']
+        fields = ['full_name', 'image', 'phone', 'is_agent']
 
     def update(self, instance, validated_data):
         """Update fields"""
         instance.full_name = validated_data.get('full_name', instance.full_name)
         instance.phone = validated_data.get('phone', instance.phone)
+        instance.is_agent = validated_data.get('is_agent', instance.is_agent)
 
         """Handle image update"""
         new_image = validated_data.get('image', None)
@@ -107,7 +108,7 @@ class UserListSerializer(serializers.ModelSerializer):
     """For admin to view all users"""
     class Meta:
         model = Users
-        fields = ['id', 'full_name', 'email', 'image', 'role', 'is_active', 'created_at', 'updated_at']
+        fields = ['id', 'full_name', 'email', 'image', 'is_agent', 'role', 'is_active', 'created_at', 'updated_at']
         read_only_fields = ['id', 'email', 'role', 'created_at', 'updated_at']
 
 

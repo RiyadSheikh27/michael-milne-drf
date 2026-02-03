@@ -60,6 +60,40 @@ class PropertyListCreateAPIView(CustomResponseMixin, APIView):
                     status=True
                 ).select_related('owner')
 
+            property_type = request.GET.get('property_type')
+            if property_type:
+                properties = properties.filter(propertyType__iexact=property_type)
+
+            bedrooms = request.GET.get('bedrooms')
+            if bedrooms:
+                properties = properties.filter(propertyBedrooms=bedrooms)
+
+            bathrooms = request.GET.get('bathrooms')
+            if bathrooms:
+                properties = properties.filter(propertyBathrooms=bathrooms)
+
+            parking = request.GET.get('parking')
+            if parking:
+                properties = properties.filter(propertyParking=parking)
+
+            has_pool = request.GET.get('has_pool')
+            if has_pool is not None:
+                pool_value = has_pool.lower() == 'true'
+                properties = properties.filter(propertyHasPool=pool_value)
+
+            is_strata = request.GET.get('is_strata')
+            if is_strata is not None:
+                strata_value = is_strata.lower() == 'true'
+                properties = properties.filter(propertyIsStrataProperty=strata_value)
+
+                
+            search = request.GET.get('search')
+            if search:
+                properties = properties.filter(
+                    models.Q(propertyName__icontains=search) |
+                    models.Q(propertyAddress__icontains=search)
+                )
+
             serializers = PropertyListSerializer(properties, many=True, context={'request': request})
 
             return self.success_response(

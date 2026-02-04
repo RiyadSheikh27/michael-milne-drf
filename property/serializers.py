@@ -189,8 +189,6 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
         return False
 
 
-# NEW SERIALIZERS FOR BOOKMARKS AND INSPECTIONS
-
 class BookmarkSerializer(serializers.ModelSerializer):
     """Serializer for bookmark with property details"""
     property = PropertyListSerializer(read_only=True)

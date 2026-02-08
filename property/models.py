@@ -30,6 +30,8 @@ class Property(TimeStampedModel):
     propertyHasPool = models.BooleanField(default=False)
     propertyIsStrataProperty = models.BooleanField(default=False)
 
+    propertyPortfolio = models.FileField(upload_to='property_portfolio/', null=True, blank=True)
+
     propertyFeatureImage = models.ImageField(upload_to='property_feature_images/')
 
     status = models.BooleanField(default=True)

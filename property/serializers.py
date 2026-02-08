@@ -36,7 +36,7 @@ class PropertyCreateUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Property
-        fields = ['id', 'propertyName', 'propertyAddress', 'propertyType', 'propertyBathrooms', 'propertyBedrooms', 'propertyParking', 'propertyBuildYear', 'propertyHasPool', 'propertyIsStrataProperty', 'status', 'propertyFeatureImage', 'images', 'inspection_reports', 'optional_reports', 'features', 'createdAt', 'updatedAt']
+        fields = ['id', 'propertyName', 'propertyAddress', 'propertyType', 'propertyBathrooms', 'propertyBedrooms', 'propertyParking', 'propertyBuildYear', 'propertyHasPool', 'propertyIsStrataProperty', 'status', 'propertyFeatureImage', 'propertyPortfolio', 'images', 'inspection_reports', 'optional_reports', 'features', 'createdAt', 'updatedAt']
         read_only_fields = ['id', 'createdAt', 'updatedAt']
 
     def validate_images(self, value):
@@ -153,6 +153,7 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
             'status',
             'is_unlocked',
             'propertyFeatureImage',
+            'propertyPortfolio',
             'images',
             'inspection_reports',
             'optional_reports',

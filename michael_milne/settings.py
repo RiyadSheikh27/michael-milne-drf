@@ -29,11 +29,14 @@ ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = [
     "https://austin-ovisaclike-nonoptically.ngrok-free.dev",
     "http://localhost:8000/",
-    "http://0.0.0.0:8000/"
+    "http://0.0.0.0:8000/",
+    "https://backend.homehelpgroup.com.au/",
+
 ]
 CORS_ALLOWED_ORIGIN = [
     "http://localhost:5174/",
-    "http://localhost:5173/"
+    "http://localhost:5173/",
+    "https://homehelpgroup.com.au/",
 ]
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
@@ -193,6 +196,6 @@ STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY')
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
 
 """ Frontend Base URL"""
-FRONTEND_BASE_URL = "http://localhost:5173"
+FRONTEND_BASE_URL = "https://homehelpgroup.com.au"
 
 

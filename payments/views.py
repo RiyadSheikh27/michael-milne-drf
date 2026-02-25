@@ -21,8 +21,7 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 class PropertyUnlockCreateCheckoutAPIView(CustomResponseMixin, APIView):
     """
     API view to create a Stripe checkout session for unlocking a property.
-    
-    Handles the creation of a payment session and stores the pending unlock record.
+    Charges in AUD (Australian Dollars).
     """
     
     permission_classes = [IsAuthenticated]
@@ -45,9 +44,7 @@ class PropertyUnlockCreateCheckoutAPIView(CustomResponseMixin, APIView):
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
             
-            """
-            Delete any previous pending record for retry
-            """
+            # Clean up any old pending attempts
             PropertyUnlock.objects.filter(
                 user=request.user,
                 property=property_obj,
@@ -55,12 +52,9 @@ class PropertyUnlockCreateCheckoutAPIView(CustomResponseMixin, APIView):
             ).delete()
             
             settings_obj = SystemSettings.get_settings()
-            unlock_price = settings_obj.property_unlock_price
+            unlock_price = settings_obj.property_unlock_price  # ← should be in AUD, e.g. 49.99
             
-            """
-            Build backend URLs for intermediate processing
-            Backend will verify payment then redirect to frontend
-            """
+            # Build success/cancel URLs (backend verifies → redirects to frontend)
             base_url = f"{request.scheme}://{request.get_host()}"
             
             success_url = (
@@ -78,8 +72,8 @@ class PropertyUnlockCreateCheckoutAPIView(CustomResponseMixin, APIView):
                 line_items=[
                     {
                         'price_data': {
-                            'currency': 'usd',
-                            'unit_amount': int(float(unlock_price) * 100),
+                            'currency': 'aud',  # ← Changed to AUD
+                            'unit_amount': int(float(unlock_price) * 100),  # e.g. 4999 for A$49.99
                             'product_data': {
                                 'name': f'Unlock: {property_obj.propertyName}',
                                 'description': 'Full access to property details',
@@ -103,7 +97,7 @@ class PropertyUnlockCreateCheckoutAPIView(CustomResponseMixin, APIView):
                 property=property_obj,
                 stripe_checkout_session_id=checkout_session.id,
                 amount_paid=unlock_price,
-                currency='USD',
+                currency='AUD',  # ← Updated
                 payment_status='pending'
             )
             
@@ -113,7 +107,7 @@ class PropertyUnlockCreateCheckoutAPIView(CustomResponseMixin, APIView):
                     'checkout_url': checkout_session.url,
                     'session_id': checkout_session.id,
                     'amount': float(unlock_price),
-                    'currency': 'USD',
+                    'currency': 'AUD',  # ← Updated in response too
                     'property_name': property_obj.propertyName,
                 },
                 status_code=status.HTTP_201_CREATED
@@ -122,18 +116,17 @@ class PropertyUnlockCreateCheckoutAPIView(CustomResponseMixin, APIView):
         except stripe.error.StripeError as e:
             return self.error_response(
                 message="Stripe error",
-                errors=str(e),
+                errors=str(e.user_message) if hasattr(e, 'user_message') else str(e),
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
         except Exception as e:
             import traceback
             traceback.print_exc()
             return self.error_response(
-                message="Error",
+                message="Error creating checkout session",
                 errors=str(e),
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
 
 class PropertyPaymentSuccessAPIView(APIView):
     """

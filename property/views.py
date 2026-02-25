@@ -13,6 +13,8 @@ from drf_yasg.utils import swagger_auto_schema
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import SAFE_METHODS
 from django.utils import timezone
+from django.conf import settings
+from django.core.mail import EmailMultiAlternatives
 
 
 """Start of views for property section"""
@@ -352,7 +354,7 @@ class PropertyQRCodeAPIView(CustomResponseMixin, APIView):
             self.check_object_permissions(request, property_obj)
 
             """Build property URL"""
-            property_url = request.build_absolute_uri(f'/property/{property_obj.slug}/')
+            property_url = f"{settings.FRONTEND_BASE_URL}/property_details/{property_obj.slug}/"
 
             """Prepare QR data"""
             qr_data_text = f"Property Name: {property_obj.propertyName}\n" \
@@ -385,7 +387,7 @@ class PropertyQRCodeAPIView(CustomResponseMixin, APIView):
                     "property_name": property_obj.propertyName,
                     "property_address": property_obj.propertyAddress,
                     "property_url": property_url,
-                    "qr_code": img_base64  # can be rendered as image in frontend
+                    "qr_code": img_base64
                 },
                 status_code=status.HTTP_200_OK
             )
@@ -433,8 +435,6 @@ class FeaturedPropertiesAPIView(CustomResponseMixin, APIView):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-
-# NEW VIEWS FOR BOOKMARKS
 
 class BookmarkListCreateAPIView(CustomResponseMixin, APIView):
     """
@@ -543,24 +543,22 @@ class BookmarkDetailAPIView(CustomResponseMixin, APIView):
             )
 
 
-# NEW VIEWS FOR INSPECTIONS
-
 class InspectionListCreateAPIView(CustomResponseMixin, APIView):
     """
     GET: List all inspections for authenticated user
-    POST: Create a new inspection booking
+    POST: Create a new inspection booking + send admin notification
     """
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request):
         """Get all inspections for current user"""
         try:
             inspections = Inspection.objects.filter(
                 user=request.user
             ).select_related('property', 'property__owner')
-            
+
             serializer = InspectionSerializer(inspections, many=True, context={'request': request})
-            
+
             return self.success_response(
                 message="Inspections retrieved successfully",
                 data=serializer.data,
@@ -572,35 +570,38 @@ class InspectionListCreateAPIView(CustomResponseMixin, APIView):
                 errors=str(e),
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     def post(self, request):
-        """Create a new inspection booking"""
+        """Create a new inspection booking and notify admin"""
         serializer = InspectionSerializer(data=request.data)
-        
+
         if not serializer.is_valid():
             return self.error_response(
                 message="Validation failed",
                 errors=serializer.errors,
                 status_code=status.HTTP_400_BAD_REQUEST
             )
-        
+
         try:
             property_obj = Property.objects.get(id=serializer.validated_data['property_id'])
-            
+
             inspection = Inspection.objects.create(
                 user=request.user,
                 property=property_obj,
                 inspection_datetime=serializer.validated_data['inspection_datetime']
             )
-            
+
+            """Send notification to admin"""
+            self._send_admin_notification(inspection, request.user, property_obj)
+
             response_serializer = InspectionSerializer(inspection, context={'request': request})
-            
+
             return self.success_response(
                 message="Inspection booked successfully",
                 data=response_serializer.data,
                 status_code=status.HTTP_201_CREATED
             )
-        
+
         except Property.DoesNotExist:
             return self.error_response(
                 message="Property not found",
@@ -613,6 +614,137 @@ class InspectionListCreateAPIView(CustomResponseMixin, APIView):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    def _send_admin_notification(self, inspection, user, property_obj):
+        """Send email notification to admin about new inspection booking"""
+        subject = "New Property Inspection Request Received"
+
+        user_name = f"{user.first_name} {user.last_name}".strip() or user.username
+        user_email = user.email
+
+        property_title = getattr(property_obj, 'title', str(property_obj))
+        property_address = getattr(property_obj, 'address', 'N/A') 
+
+        inspection_time = inspection.inspection_datetime.strftime("%Y-%m-%d %H:%M")
+
+        text_message = f"""New Inspection Request
+
+Booked by: {user_name} ({user_email})
+Property: {property_title}
+Address: {property_address}
+Inspection Date & Time: {inspection_time}
+
+Please check the admin panel for details.
+"""
+
+        html_message = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>New Inspection Request</title>
+</head>
+<body style="margin:0;padding:0;background-color:#0f0f0f;font-family:'Georgia',serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0f0f0f;padding:48px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#1a1a1a;border-radius:2px;overflow:hidden;border:1px solid #2a2a2a;">
+
+        <tr><td style="background:linear-gradient(90deg,#c8a96e 0%,#e8c97e 50%,#c8a96e 100%);height:4px;font-size:0;line-height:0;"> </td></tr>
+
+        <tr>
+          <td style="padding:40px 48px 32px;border-bottom:1px solid #2a2a2a;">
+            <div style="display:inline-block;background:linear-gradient(135deg,#c8a96e,#e8c97e);width:42px;height:42px;border-radius:2px;text-align:center;line-height:42px;font-size:20px;font-weight:bold;color:#0f0f0f;font-family:'Georgia',serif;margin-bottom:20px;">I</div>
+            <p style="margin:0 0 6px;font-size:11px;letter-spacing:4px;color:#c8a96e;text-transform:uppercase;font-family:'Courier New',monospace;">New Booking</p>
+            <h1 style="margin:0;font-size:28px;font-weight:normal;color:#f5f0e8;letter-spacing:-0.5px;font-family:'Georgia',serif;line-height:1.2;">Inspection Request Received</h1>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:36px 48px;">
+            <p style="margin:0 0 32px;font-size:14px;color:#888;font-family:'Courier New',monospace;letter-spacing:1px;">
+              A user has requested a property inspection. Details below.
+            </p>
+
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+
+              <tr>
+                <td style="padding:0 0 20px;">
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#222;border-left:3px solid #c8a96e;border-radius:0 2px 2px 0;">
+                    <tr><td style="padding:16px 20px;">
+                      <p style="margin:0 0 4px;font-size:10px;letter-spacing:3px;color:#c8a96e;text-transform:uppercase;font-family:'Courier New',monospace;">Booked By</p>
+                      <p style="margin:0;font-size:17px;color:#f5f0e8;font-family:'Georgia',serif;">{user_name}</p>
+                      <p style="margin:6px 0 0;font-size:14px;color:#c8a96e;"><a href="mailto:{user_email}" style="color:#c8a96e;text-decoration:none;">{user_email}</a></p>
+                    </td></tr>
+                  </table>
+                </td>
+              </tr>
+
+              <tr>
+                <td style="padding:0 0 20px;">
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#222;border-left:3px solid #c8a96e;border-radius:0 2px 2px 0;">
+                    <tr><td style="padding:16px 20px;">
+                      <p style="margin:0 0 4px;font-size:10px;letter-spacing:3px;color:#c8a96e;text-transform:uppercase;font-family:'Courier New',monospace;">Property</p>
+                      <p style="margin:0;font-size:17px;color:#f5f0e8;font-family:'Georgia',serif;">{property_title}</p>
+                      <p style="margin:6px 0 0;font-size:14px;color:#ccc;">{property_address}</p>
+                    </td></tr>
+                  </table>
+                </td>
+              </tr>
+
+              <tr>
+                <td style="padding:0 0 0;">
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#1e1e1e;border:1px solid #2e2e2e;border-radius:2px;">
+                    <tr><td style="padding:20px;">
+                      <p style="margin:0 0 10px;font-size:10px;letter-spacing:3px;color:#888;text-transform:uppercase;font-family:'Courier New',monospace;">Inspection Time</p>
+                      <p style="margin:0;font-size:18px;color:#f5f0e8;font-family:'Georgia',serif;">{inspection_time}</p>
+                    </td></tr>
+                  </table>
+                </td>
+              </tr>
+
+            </table>
+
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:36px;">
+              <tr>
+                <td>
+                  <a href="mailto:{user_email}" style="display:inline-block;background:linear-gradient(135deg,#c8a96e,#e8c97e);color:#0f0f0f;text-decoration:none;padding:14px 32px;border-radius:2px;font-size:11px;letter-spacing:3px;text-transform:uppercase;font-family:'Courier New',monospace;font-weight:bold;">
+                    Reply to User
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:24px 48px;border-top:1px solid #2a2a2a;background-color:#141414;">
+            <p style="margin:0;font-size:11px;color:#444;font-family:'Courier New',monospace;letter-spacing:1px;">
+              This is an automated notification. Do not reply directly to this email.<br/>
+              © 2026 Michael Milne — Inspection Notifications
+            </p>
+          </td>
+        </tr>
+
+        <tr><td style="background:linear-gradient(90deg,#c8a96e 0%,#e8c97e 50%,#c8a96e 100%);height:2px;font-size:0;line-height:0;"> </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+
+</body>
+</html>"""
+
+        email_msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_message,
+            from_email=settings.EMAIL_HOST_USER,
+            to=[settings.ADMIN_EMAIL],
+            reply_to=[user_email],
+        )
+
+        email_msg.attach_alternative(html_message, "text/html")
+        email_msg.send(fail_silently=False)
 
 class InspectionDetailAPIView(CustomResponseMixin, APIView):
     """
@@ -711,8 +843,6 @@ class InspectionDetailAPIView(CustomResponseMixin, APIView):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-
-# NEW VIEW FOR USER STATISTICS
 
 class UserStatisticsAPIView(CustomResponseMixin, APIView):
     """

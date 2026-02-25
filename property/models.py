@@ -20,6 +20,7 @@ class Property(TimeStampedModel):
     propertyName = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, unique=True, blank=True)
     propertyAddress = models.CharField(max_length=255)
+    propertyDetails = models.CharField(max_length=255, blank=True, null=True)
     propertyType = models.CharField(max_length=255)
 
     propertyBedrooms = models.CharField(max_length=255, null=True, blank=True)

@@ -50,7 +50,7 @@ class PropertyAdmin(admin.ModelAdmin):
         'createdAt',
     ]
     list_filter = ['status', 'propertyType', 'propertyHasPool', 'propertyIsStrataProperty']
-    search_fields = ['propertyName', 'slug', 'owner__username', 'propertyAddress']
+    search_fields = ['propertyName', 'slug', 'owner__username', 'propertyAddress', 'propertyBio']
     readonly_fields = ['slug', 'total_views', 'createdAt', 'updatedAt']
     inlines = [
         PropertyImageInline,

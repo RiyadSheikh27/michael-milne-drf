@@ -616,6 +616,7 @@ class InspectionListCreateAPIView(CustomResponseMixin, APIView):
 
     def _send_admin_notification(self, inspection, user, property_obj):
         """Send email notification to admin about new inspection booking"""
+        owner = property_obj.owner
         subject = "New Property Inspection Request Received"
 
         user_name = f"{user.first_name} {user.last_name}".strip() or user.username
@@ -739,7 +740,7 @@ Please check the admin panel for details.
             subject=subject,
             body=text_message,
             from_email=settings.EMAIL_HOST_USER,
-            to=[settings.ADMIN_EMAIL],
+            to=[owner.email],
             reply_to=[user_email],
         )
 

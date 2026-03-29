@@ -21,6 +21,7 @@ class Property(TimeStampedModel):
     slug = models.SlugField(max_length=255, unique=True, blank=True)
     propertyAddress = models.CharField(max_length=255)
     propertyDetails = models.CharField(max_length=1000, blank=True, null=True)
+    propertyPrice = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     propertyType = models.CharField(max_length=255)
 
     propertyBedrooms = models.CharField(max_length=255, null=True, blank=True)
@@ -111,6 +112,7 @@ class PropertyImage(TimeStampedModel):
 class PropertyInspectionReport(TimeStampedModel):
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='inspection_reports')
     report = models.FileField(upload_to='property_inspection_reports/')
+    isActive = models.BooleanField(default=True)
     
     class Meta:
         verbose_name = 'Property Inspection Report'
@@ -124,6 +126,7 @@ class PropertyInspectionReport(TimeStampedModel):
 class PropertyOptionalReport(TimeStampedModel):
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='optional_reports')
     report = models.FileField(upload_to='property_optional_reports/')
+    isActive = models.BooleanField(default=True)
     
     class Meta:
         verbose_name = 'Property Optional Report'

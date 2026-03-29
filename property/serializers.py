@@ -19,13 +19,13 @@ class PropertyImageSerializer(serializers.ModelSerializer):
 class PropertyInspectionReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyInspectionReport
-        fields = ['id', 'report', 'createdAt', 'updatedAt']
+        fields = ['id', 'report', 'isActive', 'createdAt', 'updatedAt']
         read_only_fields = ['id', 'createdAt', 'updatedAt']
     
 class PropertyOptionalReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyOptionalReport
-        fields = ['id', 'report', 'createdAt', 'updatedAt']
+        fields = ['id', 'report', 'isActive', 'createdAt', 'updatedAt']
         read_only_fields = ['id', 'createdAt', 'updatedAt']
 
 class PropertyCreateUpdateSerializer(serializers.ModelSerializer):
@@ -36,7 +36,7 @@ class PropertyCreateUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Property
-        fields = ['id', 'propertyName', 'propertyAddress', 'propertyDetails', 'propertyType', 'propertyBathrooms', 'propertyBedrooms', 'propertyParking', 'propertyBuildYear', 'propertyHasPool', 'propertyIsStrataProperty', 'status', 'propertyFeatureImage', 'propertyPortfolio', 'images', 'inspection_reports', 'optional_reports', 'features', 'createdAt', 'updatedAt']
+        fields = ['id', 'propertyName', 'propertyAddress', 'propertyDetails', 'propertyPrice', 'propertyType', 'propertyBathrooms', 'propertyBedrooms', 'propertyParking', 'propertyBuildYear', 'propertyHasPool', 'propertyIsStrataProperty', 'status', 'propertyFeatureImage', 'propertyPortfolio', 'images', 'inspection_reports', 'optional_reports', 'features', 'createdAt', 'updatedAt']
         read_only_fields = ['id', 'createdAt', 'updatedAt']
 
     def validate_images(self, value):
@@ -77,6 +77,7 @@ class PropertyListSerializer(serializers.ModelSerializer):
             'propertyName',
             'propertyAddress',
             'propertyDetails',
+            'propertyPrice',
             'status',
             'propertyFeatureImage',
             'total_inspection_reports',
@@ -145,6 +146,7 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
             'propertyName',
             'propertyAddress',
             'propertyDetails',
+            'propertyPrice',
             'propertyType',
             'propertyBedrooms',
             'propertyBathrooms',

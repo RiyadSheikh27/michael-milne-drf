@@ -297,6 +297,8 @@ def user_list(request):
     total_inactive_users = users.filter(is_active=False).count()
 
     serializer = UserListSerializer(users, many=True)
+
+
     
     return Response({
         'success': True,

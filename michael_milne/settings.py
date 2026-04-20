@@ -122,10 +122,13 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=int(os.getenv('ACCESS_TOKEN_LIFETIME'))),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.getenv('REFRESH_TOKEN_LIFETIME'))),
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        days=int(os.getenv('ACCESS_TOKEN_LIFETIME') or 7)
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        days=int(os.getenv('REFRESH_TOKEN_LIFETIME') or 7)
+    ),
 }
-
 
 """Password validation"""
 
